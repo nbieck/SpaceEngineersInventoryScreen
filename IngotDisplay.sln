@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31313.79
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IngotDisplay", "IngotDisplay.csproj", "{E60E9A61-2379-420B-A6E2-DD65E817D18E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E60E9A61-2379-420B-A6E2-DD65E817D18E}.Debug|x64.ActiveCfg = Debug|x64
+		{E60E9A61-2379-420B-A6E2-DD65E817D18E}.Debug|x64.Build.0 = Debug|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C08233B0-3FBA-4BE4-B35A-63241F3DAE84}
+	EndGlobalSection
+EndGlobal
