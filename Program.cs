@@ -22,17 +22,44 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        // *******
+        // Parameters
+        // *******
+        const int lineHeight_ = 64;
+        const float scrollWait_ = 2f;
+        const float scrollSpeed_ = 32f;
+        const int margin_ = 20;
+        // *******
+
+
+        const float textHeight_ = 32f;
         Dictionary<string, string> ingotAbbreviations_ = new Dictionary<string, string>();
         Dictionary<string, string> oreAbbreviations_ = new Dictionary<string, string>();
         Dictionary<string, string> compAbbreviations_ = new Dictionary<string, string>();
-        int lineHeight_;
         List<long> knownPanelIds_ = new List<long>();
+
+        public class ScrollData
+        {
+            public bool scrolling;
+            public bool atTop;
+            public float scrollDistance;
+            public float waitTime;
+
+            public ScrollData()
+            {
+                scrolling = false;
+                atTop = true;
+                scrollDistance = 0;
+                waitTime = 0;
+            }
+        }
+
+        Dictionary<long, ScrollData> current_scrolls_ = new Dictionary<long, ScrollData>();
+
 
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update100;
-
-            lineHeight_ = 64;
+            Runtime.UpdateFrequency = UpdateFrequency.Update10;
 
             InitAbbreviations();
         }
@@ -94,48 +121,105 @@ namespace IngameScript
         {
         }
 
-        public void DrawSprites(ref MySpriteDrawFrame frame, Dictionary<string, int> items, RectangleF viewport, string category)
+        public void DrawSprites(ref MySpriteDrawFrame frame, Dictionary<string, int> items, RectangleF viewport, string category, long displayId)
         {
-            var pos = new Vector2(20, 20) + viewport.Position;
-
-            foreach (var item in items)
+            float totalHeight = items.Count * lineHeight_;
+            float scroll = 0;
+            if (totalHeight > viewport.Height - 2 * margin_)
             {
-                var sprite = new MySprite()
+                if (!current_scrolls_.ContainsKey(displayId))
                 {
-                    Type = SpriteType.TEXTURE,
-                    Data = $"MyObjectBuilder_{category}/{item.Key}",
-                    Position = pos + new Vector2(0, lineHeight_ / 2),
-                    Size = new Vector2(lineHeight_, lineHeight_),
-                    Color = Color.White,
-                    Alignment = TextAlignment.LEFT,
-                };
-                frame.Add(sprite);
-
-                sprite = new MySprite()
+                    current_scrolls_[displayId] = new ScrollData();
+                }
+                else
                 {
-                    Type = SpriteType.TEXT,
-                    Data = $"{getAbbreviation(item.Key, category)}",
-                    Position = pos + new Vector2(lineHeight_, 0),
-                    RotationOrScale = 2f,
-                    Color = Color.White,
-                    Alignment = TextAlignment.LEFT,
-                    FontId = "White"
-                };
-                frame.Add(sprite);
+                    float maxScroll = totalHeight - viewport.Height - 2 * margin_;
+                    var scrollData = current_scrolls_[displayId];
+                    if (scrollData.scrolling)
+                    {
+                        scrollData.scrollDistance += scrollSpeed_ * (float)Runtime.TimeSinceLastRun.TotalSeconds;
+                        if (scrollData.scrollDistance > maxScroll)
+                        {
+                            scrollData.scrolling = false;
+                            scrollData.atTop = false;
+                            scrollData.waitTime = 0;
+                            scroll = maxScroll;
+                        }
+                        else
+                            scroll = scrollData.scrollDistance;
+                    }
+                    else
+                    {
+                        scrollData.waitTime += (float)Runtime.TimeSinceLastRun.TotalSeconds;
+                        if (scrollData.waitTime > scrollWait_)
+                        {
+                            if (scrollData.atTop)
+                            {
+                                scrollData.scrolling = true;
+                                scrollData.scrollDistance = 0;
+                            }
+                            else
+                            {
+                                scrollData.atTop = true;
+                                scrollData.waitTime = 0;
+                            }
+                        }
 
-                sprite = new MySprite()
+                        if (scrollData.atTop)
+                            scroll = 0;
+                        else
+                            scroll = maxScroll;
+                    }
+                }
+            }
+            else if (current_scrolls_.ContainsKey(displayId))
+            {
+                current_scrolls_.Remove(displayId);
+            }
+
+            var pos = new Vector2(margin_, margin_ - scroll) + viewport.Position;
+
+            using (frame.Clip(margin_, margin_, (int)viewport.Width - 2 * margin_, (int)viewport.Height - 2 * margin_))
+            {
+                foreach (var item in items)
                 {
-                    Type = SpriteType.TEXT,
-                    Data = printNumber(item.Value),
-                    Position = pos + new Vector2(lineHeight_ * 3, 0),
-                    RotationOrScale = 2f,
-                    Color = Color.White,
-                    Alignment = TextAlignment.LEFT,
-                    FontId = "White"
-                };
-                frame.Add(sprite);
+                    var sprite = new MySprite()
+                    {
+                        Type = SpriteType.TEXTURE,
+                        Data = $"MyObjectBuilder_{category}/{item.Key}",
+                        Position = pos + new Vector2(0, lineHeight_ / 2),
+                        Size = new Vector2(lineHeight_, lineHeight_),
+                        Color = Color.White,
+                        Alignment = TextAlignment.LEFT,
+                    };
+                    frame.Add(sprite);
 
-                pos += new Vector2(0, lineHeight_);
+                    sprite = new MySprite()
+                    {
+                        Type = SpriteType.TEXT,
+                        Data = $"{getAbbreviation(item.Key, category)}",
+                        Position = pos + new Vector2(lineHeight_, 0),
+                        RotationOrScale = lineHeight_ / textHeight_,
+                        Color = Color.White,
+                        Alignment = TextAlignment.LEFT,
+                        FontId = "White"
+                    };
+                    frame.Add(sprite);
+
+                    sprite = new MySprite()
+                    {
+                        Type = SpriteType.TEXT,
+                        Data = printNumber(item.Value),
+                        Position = pos + new Vector2(lineHeight_ * 3, 0),
+                        RotationOrScale = lineHeight_ / textHeight_,
+                        Color = Color.White,
+                        Alignment = TextAlignment.LEFT,
+                        FontId = "White"
+                    };
+                    frame.Add(sprite);
+
+                    pos += new Vector2(0, lineHeight_);
+                }
             }
         }
 
@@ -145,24 +229,30 @@ namespace IngameScript
                 return $"{amount}";
             if (amount < 1000000)
                 return $"{amount / 1000f:F2}K";
-            else
+            if (amount < 1000000000)
                 return $"{amount / 1000000f:F2}M";
+            else
+                return $"{amount / 1000000000f:F2}G";
         }
 
         public string getAbbreviation(string item, string type)
         {
+            Dictionary<string, string> abbrevs = new Dictionary<string, string>();
             if (type == "Ingot")
             {
-                return ingotAbbreviations_[item];
+                abbrevs = ingotAbbreviations_;
             }
             if (type == "Ore")
             {
-                return oreAbbreviations_[item];
+                abbrevs = oreAbbreviations_;
             }
             if (type == "Component")
             {
-                return compAbbreviations_[item];
+                abbrevs = compAbbreviations_;
             }
+
+            if (abbrevs.ContainsKey(item))
+                return abbrevs[item];
 
             return item.Substring(0, 3);
         }
@@ -210,7 +300,7 @@ namespace IngameScript
                     (panel.TextureSize - panel.SurfaceSize) / 2f,
                     panel.SurfaceSize);
 
-                DrawSprites(ref frame, items, viewport, type);
+                DrawSprites(ref frame, items, viewport, type, panel.EntityId);
 
                 frame.Dispose();
             }
@@ -222,7 +312,6 @@ namespace IngameScript
             {
                 var itemsInInv = new List<MyInventoryItem>();
                 inv.GetItems(itemsInInv, item => item.Type.TypeId == $"MyObjectBuilder_{category}");
-
                 foreach (var item in itemsInInv)
                 {
                     if (!items.ContainsKey(item.Type.SubtypeId))
