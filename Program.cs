@@ -133,7 +133,7 @@ namespace IngameScript
                 }
                 else
                 {
-                    float maxScroll = totalHeight - viewport.Height - 2 * margin_;
+                    float maxScroll = totalHeight - (viewport.Height - 2 * margin_);
                     var scrollData = current_scrolls_[displayId];
                     if (scrollData.scrolling)
                     {
@@ -170,6 +170,8 @@ namespace IngameScript
                         else
                             scroll = maxScroll;
                     }
+
+                    current_scrolls_[displayId] = scrollData;
                 }
             }
             else if (current_scrolls_.ContainsKey(displayId))
